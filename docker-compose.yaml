@@ -30,18 +30,20 @@ services:
   keycloak_web:
     image: quay.io/keycloak/keycloak:23.0.2
     container_name: keycloak_web
+    env_file:
+      - ./.env
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
-      KC_HOSTNAME_STRICT: 'false'
-      KC_HOSTNAME_STRICT_HTTPS: 'false'
+        #KC_HOSTNAME: localhost
+        #KC_HOSTNAME_PORT: 8080
+        #KC_HOSTNAME_STRICT: 'false'
+        #KC_HOSTNAME_STRICT_HTTPS: 'false'
 
-      KC_LOG_LEVEL: info
+      KC_LOG_LEVEL: debug
       KC_METRICS_ENABLED: 'true'
       KC_HEALTH_ENABLED: 'true'
 
@@ -75,12 +77,45 @@ services:
       - postgres
     networks:
       - default
-      - postgres-compose-network      
+      - postgres-compose-network
+
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - observability
+      - default
+
+  grafana:
+    #image: grafana/grafana:10.4.1
+    image: grafana/grafana:7.0.5
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - observability        
 
 volumes:
   pgadmin_data: {}
   postgres_data: {}
   jira_data: {}
 networks: 
+  observability:
+    driver: bridge
   postgres-compose-network:
     driver: bridge
